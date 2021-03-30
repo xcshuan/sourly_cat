@@ -122,7 +122,7 @@ pub fn main() -> Result<(), Error> {
                 if nft.fishes != 9 {
                     return Err(Error::ErrInvalidParas);
                 }
-                let lock_args = load_cell_lock_hash(i, Source::Output)?;
+                let lock_args = load_cell_lock_hash(i, Source::GroupOutput)?;
                 let mut index = 16;
                 //以空格前的字符作为name
                 nft.name.iter().enumerate().any(|(i, v)| {
@@ -163,7 +163,7 @@ pub fn main() -> Result<(), Error> {
     if input_nft.len() == 2 {
         //从Witness中读取战斗轮次
         let mut n = 0;
-        let wit_args = load_witness_args(1, Source::Input)?;
+        let wit_args = load_witness_args(1, Source::GroupInput)?;
         let in_type = wit_args.input_type().as_bytes().to_vec();
         if in_type.len() > 0 {
             n = in_type[0]
@@ -171,6 +171,12 @@ pub fn main() -> Result<(), Error> {
 
         //Fighting
         if n > 0 {
+            //战斗的时候，只允许有两个输入Cell即 0，1
+            let res = load_cell_data(2, Source::Input);
+            if !res.is_err() {
+                return Err(Error::ErrWrongInputOutPut)
+            }
+
             //其中一方不能再战斗了
             if input_nft[0].fishes < 0 || input_nft[1].fishes < 0 {
                 return Err(Error::ErrUnmatchPlayer);
@@ -181,10 +187,10 @@ pub fn main() -> Result<(), Error> {
             }
 
             //要求挑战结束后，归属权不变
-            let args_input1 = load_cell_lock_hash(0, Source::Input)?;
-            let args_input2 = load_cell_lock_hash(1, Source::Input)?;
-            let args_output1 = load_cell_lock_hash(0, Source::Output)?;
-            let args_output2 = load_cell_lock_hash(1, Source::Output)?;
+            let args_input1 = load_cell_lock_hash(0, Source::GroupInput)?;
+            let args_input2 = load_cell_lock_hash(1, Source::GroupInput)?;
+            let args_output1 = load_cell_lock_hash(0, Source::GroupOutput)?;
+            let args_output2 = load_cell_lock_hash(1, Source::GroupOutput)?;
 
             //保证挑战双方一一对应
             if !(args_input1.eq(&args_output1) || args_input2.eq(&args_output2)) {
@@ -223,8 +229,8 @@ pub fn main() -> Result<(), Error> {
                     return Err(Error::ErrWrongResult);
                 }
 
-                //输的一方要更改Hash
-                let lock_args = load_cell_lock_hash(0, Source::Input)?;
+                //输的一方要更改Hash, blake160(hash+lock_args)
+                let lock_args = load_cell_lock_hash(0, Source::GroupInput)?;
                 let mut conc = Vec::with_capacity(20 + lock_args.len());
                 conc[0..20].copy_from_slice(&input_nft[1].hash);
                 conc[20..].copy_from_slice(&lock_args);
@@ -247,7 +253,7 @@ pub fn main() -> Result<(), Error> {
                     return Err(Error::ErrWrongResult);
                 }
 
-                let lock_args = load_cell_lock_hash(1, Source::Input)?;
+                let lock_args = load_cell_lock_hash(1, Source::GroupInput)?;
                 let mut conc = Vec::with_capacity(20 + lock_args.len());
                 conc[0..20].copy_from_slice(&input_nft[0].hash);
                 conc[20..].copy_from_slice(&lock_args);
