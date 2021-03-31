@@ -11,7 +11,9 @@ use ckb_std::{
     ckb_constants::Source,
     ckb_types::{bytes::Bytes, prelude::*},
     debug,
-    high_level::{load_cell_data, load_cell_lock_hash, load_script, load_witness_args, QueryIter},
+    high_level::{
+        load_cell, load_cell_data, load_cell_lock_hash, load_script, load_witness_args, QueryIter,
+    },
 };
 
 use super::hash;
@@ -19,8 +21,7 @@ use crate::error::Error;
 
 //hash 20 bytes + fishes 4 bytes + name (min 2bytes)
 const MIN_NFT_DATA_LEN: usize = 40;
-
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct NFTData {
     name: [u8; 16],
     hash: [u8; 20],
@@ -45,6 +46,7 @@ impl From<&[u8]> for NFTData {
     }
 }
 
+#[derive(Debug)]
 pub struct Statistics {
     hp: u8,
     atk: u8,
@@ -122,24 +124,26 @@ pub fn main() -> Result<(), Error> {
                 if nft.fishes != 9 {
                     return Err(Error::ErrInvalidParas);
                 }
-                let lock_args = load_cell_lock_hash(i, Source::GroupOutput)?;
-                let mut index = 16;
+                let cell = load_cell(i, Source::GroupOutput)?;
+                let lock_args = Vec::from(cell.lock().args().as_slice());
+                let mut index = 15;
                 //以空格前的字符作为name
                 nft.name.iter().enumerate().any(|(i, v)| {
-                    if *v == b' ' {
-                        index = i + 1;
+                    if *v == b'$' {
+                        index = i;
                         return true;
                     }
                     return false;
                 });
                 //最少两个字符
-                if index < 3 {
+                if index < 2 {
                     return Err(Error::ErrInvalidParas);
                 }
                 //拼接同时求hash
                 let mut conc = Vec::with_capacity(index + lock_args.len());
-                conc[0..index].copy_from_slice(&nft.name[0..index]);
-                conc[index..].copy_from_slice(&lock_args);
+                conc.extend(nft.name[0..index].iter());
+                conc.extend(lock_args.iter());
+
                 let res = hash::blake2b_160(conc);
 
                 //检验Hash是否相等
@@ -163,10 +167,12 @@ pub fn main() -> Result<(), Error> {
     if input_nft.len() == 2 {
         //从Witness中读取战斗轮次
         let mut n = 0;
-        let wit_args = load_witness_args(1, Source::GroupInput)?;
-        let in_type = wit_args.input_type().as_bytes().to_vec();
-        if in_type.len() > 0 {
-            n = in_type[0]
+        let res = load_witness_args(1, Source::GroupInput);
+        if let Ok(wit_args) = res {
+            let in_type = wit_args.input_type().as_bytes().to_vec();
+            if in_type.len() > 0 {
+                n = in_type[in_type.len() - 1];
+            }
         }
 
         //Fighting
@@ -174,7 +180,7 @@ pub fn main() -> Result<(), Error> {
             //战斗的时候，只允许有两个输入Cell即 0，1
             let res = load_cell_data(2, Source::Input);
             if !res.is_err() {
-                return Err(Error::ErrWrongInputOutPut)
+                return Err(Error::ErrWrongInputOutPut);
             }
 
             //其中一方不能再战斗了
@@ -199,17 +205,21 @@ pub fn main() -> Result<(), Error> {
 
             //计算双方的挑战前属性值
             let stats_1: Statistics = (input_nft[0].hash).into();
-            let stats_2: Statistics = (output_nft[0].hash).into();
+            let stats_2: Statistics = (input_nft[1].hash).into();
 
             //计算攻击伤害
             // Hurt1 = ATK1*( 1 - DEF2/(DEF2 - LCK2*2 + 250) )
-            let hurt_1 = stats_1.atk * (1 - stats_2.def / (stats_2.def - stats_2.lck * 2 + 250));
+            let hurt_1 = stats_1.atk as u16
+                * (1 - stats_2.def as u16 / (250 - stats_2.lck as u16 * 2 + stats_2.def as u16));
 
             // Hurt2 = ATK2*( 1 - DEF1/(DEF1 - LCK1*2 + 250) )
-            let hurt_2 = stats_2.atk * (1 - stats_1.def / (stats_1.def - stats_1.lck * 2 + 250));
+            let hurt_2 = stats_2.atk as u16
+                * (1 - stats_1.def as u16 / (250 - stats_1.lck as u16 * 2 + stats_1.def as u16));
 
             //验证挑战结果
-            if (n * hurt_1 > 10 * stats_2.hp) & ((n - 1) * hurt_2 < 10 * stats_1.hp) {
+            if (n as u16 * hurt_1 > 10 * stats_2.hp as u16)
+                & ((n - 1) as u16 * (hurt_2) < 10 * stats_1.hp as u16)
+            {
                 //1 Win!
 
                 //计算输的一方有多少fish，暂时没考虑四舍五入
@@ -232,8 +242,8 @@ pub fn main() -> Result<(), Error> {
                 //输的一方要更改Hash, blake160(hash+lock_args)
                 let lock_args = load_cell_lock_hash(0, Source::GroupInput)?;
                 let mut conc = Vec::with_capacity(20 + lock_args.len());
-                conc[0..20].copy_from_slice(&input_nft[1].hash);
-                conc[20..].copy_from_slice(&lock_args);
+                conc.extend(input_nft[1].hash.iter());
+                conc.extend(lock_args.iter());
                 let res = hash::blake2b_160(conc);
 
                 //检验Hash是否相等，赢的一方不变
@@ -252,11 +262,10 @@ pub fn main() -> Result<(), Error> {
                 {
                     return Err(Error::ErrWrongResult);
                 }
-
                 let lock_args = load_cell_lock_hash(1, Source::GroupInput)?;
                 let mut conc = Vec::with_capacity(20 + lock_args.len());
-                conc[0..20].copy_from_slice(&input_nft[0].hash);
-                conc[20..].copy_from_slice(&lock_args);
+                conc.extend(input_nft[0].hash.iter());
+                conc.extend(lock_args.iter());
                 let res = hash::blake2b_160(conc);
 
                 //检验Hash是否相等
