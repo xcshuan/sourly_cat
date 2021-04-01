@@ -120,7 +120,7 @@ fn test_create_nft() {
     let lock_args = random_20bytes();
     // prepare scripts
     let lock_script = context
-        .build_script(&always_success_out_point, lock_args.clone())
+        .build_script(&always_success_out_point, lock_args)
         .expect("lock script");
     let lock_script_user = context
         .build_script(&always_success_out_point, random_20bytes())
@@ -192,29 +192,29 @@ fn test_create_nft() {
     for u in &mut nft_data {
         u.fishes = 9;
     }
-    let user_lock_args = Vec::from(lock_script_user.args().as_slice());
+    let user_lock_hash = Vec::from(lock_script_user.calc_script_hash().as_slice());
     let mut conc: Vec<u8> = Vec::with_capacity(23);
     nft_data[0].name[0..4].copy_from_slice(b"125$");
     conc.extend(b"125".iter());
-    conc.extend(user_lock_args.iter());
+    conc.extend(user_lock_hash.iter());
     nft_data[0].hash = blake2b_160(&conc);
     conc.clear();
 
     nft_data[1].name[0..4].copy_from_slice(b"123$");
     conc.extend(b"123".iter());
-    conc.extend(user_lock_args.iter());
+    conc.extend(user_lock_hash.iter());
     nft_data[1].hash = blake2b_160(&conc);
     conc.clear();
 
     nft_data[2].name[0..4].copy_from_slice(b"234$");
     conc.extend(b"234".iter());
-    conc.extend(user_lock_args.iter());
+    conc.extend(user_lock_hash.iter());
     nft_data[2].hash = blake2b_160(&conc);
     conc.clear();
 
     nft_data[3].name[0..4].copy_from_slice(b"456$");
     conc.extend(b"456".iter());
-    conc.extend(user_lock_args.iter());
+    conc.extend(user_lock_hash.iter());
     nft_data[3].hash = blake2b_160(&conc);
     conc.clear();
 
@@ -250,6 +250,10 @@ fn test_nft_transfer() {
 
     let lock_args = random_20bytes();
     // prepare scripts
+    let lock_script = context
+        .build_script(&always_success_out_point, lock_args)
+        .expect("lock script");
+    let lock_hash = lock_script.calc_script_hash().as_bytes();
     let lock_script_input = context
         .build_script(&always_success_out_point, random_20bytes())
         .expect("lock script");
@@ -259,37 +263,38 @@ fn test_nft_transfer() {
     let lock_script_dep = CellDep::new_builder()
         .out_point(always_success_out_point.clone())
         .build();
+
     // prepare scripts
-    let type_script = context.build_script(&out_point, lock_args).expect("script");
+    let type_script = context.build_script(&out_point, lock_hash).expect("script");
     let type_script_dep = CellDep::new_builder().out_point(out_point).build();
 
     let mut nft_data = vec![NFTData::new(); 4];
     for u in &mut nft_data {
         u.fishes = 9;
     }
-    let user_lock_args = Vec::from(lock_script_user.args().as_slice());
+    let user_lock_hash = Vec::from(lock_script_user.calc_script_hash().as_slice());
     let mut conc: Vec<u8> = Vec::with_capacity(23);
     nft_data[0].name[0..4].copy_from_slice(b"125$");
     conc.extend(b"125".iter());
-    conc.extend(user_lock_args.iter());
+    conc.extend(user_lock_hash.iter());
     nft_data[0].hash = blake2b_160(&conc);
     conc.clear();
 
     nft_data[1].name[0..4].copy_from_slice(b"123$");
     conc.extend(b"123".iter());
-    conc.extend(user_lock_args.iter());
+    conc.extend(user_lock_hash.iter());
     nft_data[1].hash = blake2b_160(&conc);
     conc.clear();
 
     nft_data[2].name[0..4].copy_from_slice(b"234$");
     conc.extend(b"234".iter());
-    conc.extend(user_lock_args.iter());
+    conc.extend(user_lock_hash.iter());
     nft_data[2].hash = blake2b_160(&conc);
     conc.clear();
 
     nft_data[3].name[0..4].copy_from_slice(b"456$");
     conc.extend(b"456".iter());
-    conc.extend(user_lock_args.iter());
+    conc.extend(user_lock_hash.iter());
     nft_data[3].hash = blake2b_160(&conc);
     conc.clear();
 
@@ -428,7 +433,12 @@ fn test_nft_fighting() {
     let out_point = context.deploy_cell(contract_bin);
     let always_success_out_point = context.deploy_cell(ALWAYS_SUCCESS.clone());
 
-    let owner_lock_args = random_20bytes();
+    let lock_args = random_20bytes();
+    // prepare scripts
+    let lock_script = context
+        .build_script(&always_success_out_point, lock_args)
+        .expect("lock script");
+    let lock_hash = lock_script.calc_script_hash().as_bytes();
     // prepare scripts
     let lock_script_1 = context
         .build_script(&always_success_out_point, random_20bytes())
@@ -440,23 +450,21 @@ fn test_nft_fighting() {
         .out_point(always_success_out_point.clone())
         .build();
     // prepare scripts
-    let type_script = context
-        .build_script(&out_point, owner_lock_args)
-        .expect("script");
+    let type_script = context.build_script(&out_point, lock_hash).expect("script");
     let type_script_dep = CellDep::new_builder().out_point(out_point).build();
 
     let mut input_nft = vec![NFTData::new(); 2];
     for nft in &mut input_nft {
         nft.fishes = 9;
     }
-    let lock_args_1 = Vec::from(lock_script_1.args().as_slice());
-    let lock_args_2 = Vec::from(lock_script_2.args().as_slice());
+    let lock_hash_1 = Vec::from(lock_script_1.calc_script_hash().as_slice());
+    let lock_hash_2 = Vec::from(lock_script_2.calc_script_hash().as_slice());
     //第一个NFT
     let mut conc: Vec<u8> = Vec::with_capacity(23);
     //名字125
     input_nft[0].name[0..4].copy_from_slice(b"125$");
     conc.extend(b"125".iter());
-    conc.extend(lock_args_1.iter());
+    conc.extend(lock_hash_1.iter());
     input_nft[0].hash = blake2b_160(&conc);
     conc.clear();
 
@@ -464,7 +472,7 @@ fn test_nft_fighting() {
     //名字123
     input_nft[1].name[0..4].copy_from_slice(b"123$");
     conc.extend(b"123".iter());
-    conc.extend(lock_args_2.iter());
+    conc.extend(lock_hash_2.iter());
     input_nft[1].hash = blake2b_160(&conc);
     conc.clear();
 
@@ -510,7 +518,10 @@ fn test_nft_fighting() {
             .build(),
     ];
 
-    let n = rand::random::<u8>();
+    let mut n = rand::random::<u8>();
+    if n < 20 {
+        n += 20;
+    }
 
     let mut output_nft = vec![NFTData::new(); 2];
 
@@ -521,6 +532,8 @@ fn test_nft_fighting() {
     let stats_1: Statistics = (input_nft[0].hash).into();
     let stats_2: Statistics = (input_nft[1].hash).into();
 
+    // print!("stats_1:{:?},stats_2:{:?}\n", stats_1, stats_2);
+
     //计算攻击伤害
     // Hurt1 = ATK1*( 1 - DEF2/(DEF2 - LCK2*2 + 250) )
     let hurt_1 = stats_1.atk as u16
@@ -530,57 +543,82 @@ fn test_nft_fighting() {
     let hurt_2 = stats_2.atk as u16
         * (1 - stats_1.def as u16 / (250 - stats_1.lck as u16 * 2 + stats_1.def as u16));
 
-    //验证挑战结果
-    if (n as u16 * hurt_1 > 10 * stats_2.hp as u16)
-        & ((n - 1) as u16 * (hurt_2) < 10 * stats_1.hp as u16)
-    {
-        //1 Win!
+    // print!("hurt_1:{},hurt_2:{}\n", hurt_1, hurt_2);
 
-        //计算输的一方有多少fish，暂时没考虑四舍五入
-        let mut loser_fishes = input_nft[1].fishes - stats_1.atk as i32 / 10;
+    let mut someone_win = false;
+    for i in 1..=n {
+        if (i as u16 * hurt_1 > 10 * stats_2.hp as u16)
+            && ((i - 1) as u16 * (hurt_2) < 10 * stats_1.hp as u16)
+        {
+            someone_win = true;
+            //1 Win!
 
-        //触发隐藏奖励
-        if loser_fishes == 0 {
-            loser_fishes = 999
+            //计算输的一方有多少fish，暂时没考虑四舍五入
+            let mut loser_fishes = input_nft[1].fishes - stats_1.atk as i32 / 10;
+
+            //触发隐藏奖励
+            if loser_fishes == 0 {
+                loser_fishes = 999
+            }
+
+            //计算赢的一方的Fish数目
+            let winner_fishes = { input_nft[0].fishes + (stats_2.hp as i32 / 10) };
+
+            print!(
+                "1Win, loser_fishes:{}, winner_fishes:{}\n",
+                loser_fishes, winner_fishes
+            );
+
+            output_nft[0].fishes = winner_fishes;
+            output_nft[1].fishes = loser_fishes;
+
+            //输的一方要更改Hash, blake160(hash+lock_hash)
+            let lock_hash = Vec::from(lock_script_1.calc_script_hash().as_slice());
+            let mut conc = Vec::with_capacity(20 + lock_hash.len());
+            conc.extend(input_nft[1].hash.iter());
+            conc.extend(lock_hash.iter());
+            let res = blake2b_160(conc);
+
+            output_nft[1].hash = res;
+            output_nft[0].hash = input_nft[0].hash;
+            break;
         }
 
-        //计算赢的一方的Fish数目
-        let winner_fishes = { input_nft[0].fishes + (stats_2.hp as i32 / 10) };
+        //验证挑战结果
+        if (i as u16 * hurt_1 < 10 * stats_2.hp as u16)
+            && (i as u16 * (hurt_2) > 10 * stats_1.hp as u16)
+        {
+            someone_win = true;
+            //2 Win! 检查逻辑类似1
+            let mut loser_fishes = input_nft[0].fishes - stats_2.atk as i32 / 10;
+            if loser_fishes == 0 {
+                loser_fishes = 999
+            }
+            let winner_fishes = { input_nft[1].fishes + stats_1.hp as i32 / 10 };
 
-        output_nft[0].fishes = winner_fishes;
-        output_nft[1].fishes = loser_fishes;
+            print!(
+                "2Win, loser_fishes:{}, winner_fishes:{}\n",
+                loser_fishes, winner_fishes
+            );
+            output_nft[1].fishes = winner_fishes;
+            output_nft[0].fishes = loser_fishes;
 
-        //输的一方要更改Hash, blake160(hash+lock_hash)
-        let lock_hash = Vec::from(lock_script_1.calc_script_hash().as_slice());
-        let mut conc = Vec::with_capacity(20 + lock_hash.len());
-        conc.extend(input_nft[1].hash.iter());
-        conc.extend(lock_hash.iter());
-        let res = blake2b_160(conc);
+            let lock_hash = Vec::from(lock_script_2.calc_script_hash().as_slice());
 
-        output_nft[1].hash = res;
-        output_nft[0].hash = input_nft[0].hash;
-    } else {
-        //2 Win! 检查逻辑类似1
-        let mut loser_fishes = input_nft[0].fishes - stats_2.atk as i32 / 10;
-        if loser_fishes == 0 {
-            loser_fishes = 999
+            let mut conc = Vec::with_capacity(20 + lock_hash.len());
+            conc.extend(input_nft[0].hash.iter());
+            conc.extend(lock_hash.iter());
+            let res = blake2b_160(conc);
+
+            output_nft[0].hash = res;
+            output_nft[1].hash = input_nft[1].hash;
+            break;
         }
-        let winner_fishes = { input_nft[1].fishes + stats_1.hp as i32 / 10 };
-
-        output_nft[1].fishes = winner_fishes;
-        output_nft[0].fishes = loser_fishes;
-
-        let lock_hash = Vec::from(lock_script_2.calc_script_hash().as_slice());
-
-        let mut conc = Vec::with_capacity(20 + lock_hash.len());
-        conc.extend(input_nft[0].hash.iter());
-        conc.extend(lock_hash.iter());
-        let res = blake2b_160(conc);
-
-        output_nft[0].hash = res;
-        output_nft[1].hash = input_nft[1].hash;
     }
 
+    if !someone_win {
+        panic!("Even!")
+    }
     let outputs = vec![
         CellOutput::new_builder()
             .capacity(500u64.pack())
@@ -608,6 +646,7 @@ fn test_nft_fighting() {
         outputs_data.push(Bytes::from(data));
     }
     let fight_number = vec![n];
+    //print!("n = {}\n", n);
     let witnesses = vec![
         WitnessArgsBuilder::default().build().as_bytes().pack(),
         WitnessArgsBuilder::default()
@@ -636,4 +675,157 @@ fn test_nft_fighting() {
         .verify_tx(&tx, MAX_CYCLES)
         .expect("pass verification");
     println!("consume cycles: {}", cycles);
+}
+
+#[test]
+fn test_fighting_prob() {
+    // deploy contract
+    let mut context = Context::default();
+
+    let always_success_out_point = context.deploy_cell(ALWAYS_SUCCESS.clone());
+
+    let mut win_1_count = 0;
+    let mut win_2_count = 0;
+
+    for _ in 0..100 {
+        // prepare scripts
+        let lock_script_1 = context
+            .build_script(&always_success_out_point, random_20bytes())
+            .expect("lock script");
+        let lock_script_2 = context
+            .build_script(&always_success_out_point, random_20bytes())
+            .expect("lock script");
+        let mut input_nft = vec![NFTData::new(); 2];
+        for nft in &mut input_nft {
+            nft.fishes = 9;
+        }
+        let lock_hash_1 = Vec::from(lock_script_1.calc_script_hash().as_slice());
+        let lock_hash_2 = Vec::from(lock_script_2.calc_script_hash().as_slice());
+        //第一个NFT
+        let mut conc: Vec<u8> = Vec::with_capacity(23);
+        //名字125
+        input_nft[0].name[0..4].copy_from_slice(b"125$");
+        conc.extend(b"125".iter());
+        conc.extend(lock_hash_1.iter());
+        input_nft[0].hash = blake2b_160(&conc);
+        conc.clear();
+
+        //第二个NFT
+        //名字123
+        input_nft[1].name[0..4].copy_from_slice(b"123$");
+        conc.extend(b"123".iter());
+        conc.extend(lock_hash_2.iter());
+        input_nft[1].hash = blake2b_160(&conc);
+        conc.clear();
+
+        let mut inputs_data = Vec::with_capacity(2);
+        for nft in input_nft.iter() {
+            let data = nft.serialize().to_vec();
+            inputs_data.push(Bytes::from(data));
+        }
+
+        let mut n = rand::random::<u8>();
+        if n < 20 {
+            n += 20;
+        }
+
+        let mut output_nft = vec![NFTData::new(); 2];
+
+        output_nft[0].name = input_nft[0].name;
+        output_nft[1].name = input_nft[1].name;
+
+        //计算双方的挑战前属性值
+        let stats_1: Statistics = (input_nft[0].hash).into();
+        let stats_2: Statistics = (input_nft[1].hash).into();
+
+        // print!("n:{},stats_1:{:?},stats_2:{:?}\n", n, stats_1, stats_2);
+
+        //计算攻击伤害
+        // Hurt1 = ATK1*( 1 - DEF2/(DEF2 - LCK2*2 + 250) )
+        let hurt_1 = stats_1.atk as u16
+            * (1 - stats_2.def as u16 / (250 - stats_2.lck as u16 * 2 + stats_2.def as u16));
+
+        // Hurt2 = ATK2*( 1 - DEF1/(DEF1 - LCK1*2 + 250) )
+        let hurt_2 = stats_2.atk as u16
+            * (1 - stats_1.def as u16 / (250 - stats_1.lck as u16 * 2 + stats_1.def as u16));
+
+        // print!("hurt_1:{},hurt_2:{}\n", hurt_1, hurt_2);
+
+        let mut someone_win = false;
+        for i in 0..n {
+            if (i as u16 * hurt_1 > 10 * stats_2.hp as u16)
+                && ((i - 1) as u16 * (hurt_2) < 10 * stats_1.hp as u16)
+            {
+                someone_win = true;
+                win_1_count += 1;
+                //1 Win!
+
+                //计算输的一方有多少fish，暂时没考虑四舍五入
+                let mut loser_fishes = input_nft[1].fishes - stats_1.atk as i32 / 10;
+
+                //触发隐藏奖励
+                if loser_fishes == 0 {
+                    loser_fishes = 999
+                }
+
+                //计算赢的一方的Fish数目
+                let winner_fishes = { input_nft[0].fishes + (stats_2.hp as i32 / 10) };
+
+                // print!(
+                //     "1Win, loser_fishes:{}, winner_fishes:{}\n",
+                //     loser_fishes, winner_fishes
+                // );
+
+                output_nft[0].fishes = winner_fishes;
+                output_nft[1].fishes = loser_fishes;
+
+                //输的一方要更改Hash, blake160(hash+lock_hash)
+                let lock_hash = Vec::from(lock_script_1.calc_script_hash().as_slice());
+                let mut conc = Vec::with_capacity(20 + lock_hash.len());
+                conc.extend(input_nft[1].hash.iter());
+                conc.extend(lock_hash.iter());
+                let res = blake2b_160(conc);
+
+                output_nft[1].hash = res;
+                output_nft[0].hash = input_nft[0].hash;
+                break;
+            }
+
+            //验证挑战结果
+            if ((i as u16 * hurt_1) < (10 * stats_2.hp as u16))
+                && (i as u16 * (hurt_2) > (10 * stats_1.hp as u16))
+            {
+                someone_win = true;
+                win_2_count += 1;
+                //2 Win! 检查逻辑类似1
+                let mut loser_fishes = input_nft[0].fishes - stats_2.atk as i32 / 10;
+                if loser_fishes == 0 {
+                    loser_fishes = 999
+                }
+                let winner_fishes = { input_nft[1].fishes + stats_1.hp as i32 / 10 };
+
+                // print!(
+                //     "2Win, loser_fishes:{}, winner_fishes:{}\n",
+                //     loser_fishes, winner_fishes
+                // );
+                output_nft[1].fishes = winner_fishes;
+                output_nft[0].fishes = loser_fishes;
+
+                let lock_hash = Vec::from(lock_script_2.calc_script_hash().as_slice());
+
+                let mut conc = Vec::with_capacity(20 + lock_hash.len());
+                conc.extend(input_nft[0].hash.iter());
+                conc.extend(lock_hash.iter());
+                let res = blake2b_160(conc);
+
+                output_nft[0].hash = res;
+                output_nft[1].hash = input_nft[1].hash;
+                break;
+            }
+        }
+        if !someone_win {
+            print!("nobody win!\n");
+        }
+    }
+    print!("1 Win count:{}, 2 Win count:{}\n", win_1_count, win_2_count);
 }
