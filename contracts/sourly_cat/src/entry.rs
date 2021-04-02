@@ -55,10 +55,10 @@ pub struct Statistics {
 impl From<[u8; 20]> for Statistics {
     fn from(hash: [u8; 20]) -> Self {
         //只看每五个字节的最后一个字节
-        let hp = hash[4] % 101;
-        let atk = hash[9] % 101;
-        let def = hash[14] % 101;
-        let lck = hash[19] % 101;
+        let hp = hash[4] % 100 + 1;
+        let atk = hash[9] % 100 + 1;
+        let def = hash[14] % 100 + 1;
+        let lck = hash[19] % 100 + 1;
         return Statistics { hp, atk, def, lck };
     }
 }
@@ -114,7 +114,7 @@ pub fn main() -> Result<(), Error> {
 
     //Onwer发起的，Create NFT,
     if check_owner_mode(&args)? {
-        //暂时不做检查，相信Owner 
+        //暂时不做检查，相信Owner
         // //对每个生成的NFT，验证其是否符合规则
         // output_nft
         //     .iter()
@@ -168,8 +168,12 @@ pub fn main() -> Result<(), Error> {
         let res = load_witness_args(1, Source::GroupInput);
         if let Ok(wit_args) = res {
             let in_type = wit_args.input_type().as_bytes().to_vec();
-            if in_type.len() > 0 {
-                n = in_type[in_type.len() - 1];
+            //in_type前四个字节好像被占用了
+            if in_type.len() >= 6 {
+                let mut number = [0u8; 2];
+                number[0] = in_type[4];
+                number[1] = in_type[5];
+                n = u16::from_be_bytes(number);
             }
         }
 
@@ -218,83 +222,77 @@ pub fn main() -> Result<(), Error> {
             //debug!("hurt_1:{},hurt_2:{}", hurt_1, hurt_2);
 
             //开始回合制攻击
-            for i in 1..=n {
-                // 传入任意 n 值，满足下列两个条件之一，则可以确认战斗结果
-                //n * Hurt1 > 10 * HP2 且 (n-1) * Hurt2 < 10 * HP1 则 <被挑战者> 胜利
-                //n * Hurt1 < 10 * HP2 且 n * Hurt2 > 10 * HP1 则 <挑战者> 胜利
-                if (i as u16 * hurt_1 > 10 * stats_2.hp as u16)
-                    && ((i- 1) as u16 * (hurt_2) < 10 * stats_1.hp as u16)
-                {
-                    //1 Win!
 
-                    //计算输的一方有多少fish，暂时没考虑四舍五入
-                    let mut loser_fishes = input_nft[1].fishes - stats_1.atk as i32 / 10;
+            // 传入任意 n 值，满足下列两个条件之一，则可以确认战斗结果
+            //n * Hurt1 > 10 * HP2 且 (n-1) * Hurt2 < 10 * HP1 则 <被挑战者> 胜利
+            //n * Hurt1 < 10 * HP2 且 n * Hurt2 > 10 * HP1 则 <挑战者> 胜利
+            if (n * hurt_1 >= 10 * stats_2.hp as u16)
+                && ((n - 1) * (hurt_2) < 10 * stats_1.hp as u16)
+            {
+                //1 Win!
+                //计算输的一方有多少fish，暂时没考虑四舍五入
+                let mut loser_fishes = input_nft[1].fishes - stats_1.atk as i32 / 10;
 
-                    //触发隐藏奖励
-                    if loser_fishes == 0 {
-                        loser_fishes = 999
-                    }
-
-                    //计算赢的一方的Fish数目
-                    let winner_fishes = { input_nft[0].fishes + (stats_2.hp as i32 / 10) };
-
-                    debug!(
-                        "1 Win, loser_fishes:{}, winner_fishes:{}",
-                        loser_fishes, winner_fishes
-                    );
-                    //检查fish是否对应
-                    if (output_nft[0].fishes != winner_fishes)
-                        || (output_nft[1].fishes != loser_fishes)
-                    {
-                        return Err(Error::ErrWrongResult);
-                    }
-
-                    //输的一方要更改Hash, blake160(hash+lock_args)
-                    let lock_args = load_cell_lock_hash(0, Source::GroupInput)?;
-                    let mut conc = Vec::with_capacity(20 + lock_args.len());
-                    conc.extend(input_nft[1].hash.iter());
-                    conc.extend(lock_args.iter());
-                    let res = hash::blake2b_160(conc);
-
-                    //检验Hash是否相等，赢的一方不变
-                    if !res.eq(&output_nft[1].hash) || input_nft[0].hash != output_nft[0].hash {
-                        return Err(Error::ErrWrongResult);
-                    }
-                    return Ok(());
+                //触发隐藏奖励
+                if loser_fishes == 0 {
+                    loser_fishes = 999
                 }
 
-                //验证挑战结果
-                if (i as u16 * hurt_1 < 10 * stats_2.hp as u16)
-                    && (i as u16 * (hurt_2) > 10 * stats_1.hp as u16)
+                //计算赢的一方的Fish数目
+                let winner_fishes = { input_nft[0].fishes + (stats_2.hp as i32 / 10) };
+
+                // debug!(
+                //     "1 Win, loser_fishes:{}, winner_fishes:{}",
+                //     loser_fishes, winner_fishes
+                // );
+                //检查fish是否对应
+                if (output_nft[0].fishes != winner_fishes) || (output_nft[1].fishes != loser_fishes)
                 {
-                    //2 Win! 检查逻辑类似1
-                    let mut loser_fishes = input_nft[0].fishes - stats_2.atk as i32 / 10;
-                    if loser_fishes == 0 {
-                        loser_fishes = 999
-                    }
-                    let winner_fishes = { input_nft[1].fishes + stats_1.hp as i32 / 10 };
-                    debug!(
-                        "2Win, loser_fishes:{}, winner_fishes:{}",
-                        loser_fishes, winner_fishes
-                    );
-                    if (output_nft[1].fishes != winner_fishes)
-                        || (output_nft[0].fishes != loser_fishes)
-                    {
-                        return Err(Error::ErrWrongResult);
-                    }
-                    let lock_args = load_cell_lock_hash(1, Source::GroupInput)?;
-                    let mut conc = Vec::with_capacity(20 + lock_args.len());
-                    conc.extend(input_nft[0].hash.iter());
-                    conc.extend(lock_args.iter());
-                    let res = hash::blake2b_160(conc);
-
-                    //检验Hash是否相等
-                    if !res.eq(&output_nft[0].hash) || input_nft[1].hash != output_nft[1].hash {
-                        return Err(Error::ErrWrongResult);
-                    }
-
-                    return Ok(());
+                    return Err(Error::ErrWrongResult);
                 }
+
+                //输的一方要更改Hash, blake160(hash+lock_args)
+                let lock_args = load_cell_lock_hash(0, Source::GroupInput)?;
+                let mut conc = Vec::with_capacity(20 + lock_args.len());
+                conc.extend(input_nft[1].hash.iter());
+                conc.extend(lock_args.iter());
+                let res = hash::blake2b_160(conc);
+
+                //检验Hash是否相等，赢的一方不变
+                if !res.eq(&output_nft[1].hash) || input_nft[0].hash != output_nft[0].hash {
+                    return Err(Error::ErrWrongResult);
+                }
+                return Ok(());
+            }
+
+            //验证挑战结果
+            if (n * hurt_1 < 10 * stats_2.hp as u16) && (n * (hurt_2) >= 10 * stats_1.hp as u16) {
+                //2 Win! 检查逻辑类似1
+                let mut loser_fishes = input_nft[0].fishes - stats_2.atk as i32 / 10;
+                if loser_fishes == 0 {
+                    loser_fishes = 999
+                }
+                let winner_fishes = { input_nft[1].fishes + stats_1.hp as i32 / 10 };
+                // debug!(
+                //     "2Win, loser_fishes:{}, winner_fishes:{}",
+                //     loser_fishes, winner_fishes
+                // );
+                if (output_nft[1].fishes != winner_fishes) || (output_nft[0].fishes != loser_fishes)
+                {
+                    return Err(Error::ErrWrongResult);
+                }
+                let lock_args = load_cell_lock_hash(1, Source::GroupInput)?;
+                let mut conc = Vec::with_capacity(20 + lock_args.len());
+                conc.extend(input_nft[0].hash.iter());
+                conc.extend(lock_args.iter());
+                let res = hash::blake2b_160(conc);
+
+                //检验Hash是否相等
+                if !res.eq(&output_nft[0].hash) || input_nft[1].hash != output_nft[1].hash {
+                    return Err(Error::ErrWrongResult);
+                }
+
+                return Ok(());
             }
 
             //没产生结果，报错
@@ -314,7 +312,7 @@ pub fn main() -> Result<(), Error> {
         })
         .is_some()
     {
-        return Err(Error::ErrWrongResult);
+        return Err(Error::ErrWrongTransfer);
     }
 
     Ok(())

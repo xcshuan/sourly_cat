@@ -11,6 +11,7 @@ pub enum Error {
     ErrWrongInputOutPut,
     ErrUnmatchPlayer,
     ErrWrongResult,
+    ErrWrongTransfer,
 }
 
 impl From<SysError> for Error {
