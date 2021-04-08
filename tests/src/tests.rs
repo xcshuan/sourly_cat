@@ -546,8 +546,8 @@ fn test_nft_fighting() {
     let mut someone_win = false;
     let mut n = 0;
     for i in 1..=max_fight_count {
-        if (i as u16 * hurt_1 > 10 * stats_2.hp as u16)
-            && ((i - 1) as u16 * (hurt_2) < 10 * stats_1.hp as u16)
+        if (i as u16 * hurt_1 > 5 * stats_2.hp as u16)
+            && ((i - 1) as u16 * (hurt_2) < 5 * stats_1.hp as u16)
         {
             n = i;
             someone_win = true;
@@ -585,8 +585,8 @@ fn test_nft_fighting() {
         }
 
         //验证挑战结果
-        if (i as u16 * hurt_1 < 10 * stats_2.hp as u16)
-            && (i as u16 * (hurt_2) > 10 * stats_1.hp as u16)
+        if (i as u16 * hurt_1 < 5 * stats_2.hp as u16)
+            && (i as u16 * (hurt_2) > 5 * stats_1.hp as u16)
         {
             n = i;
             someone_win = true;
@@ -690,7 +690,7 @@ fn test_fighting_prob() {
     let mut even_count = 0;
 
     for k in 1..=10 as u16 {
-        let all = 100000;
+        let all = 2000;
         for _ in 0..all {
             // prepare scripts
             let lock_script_1 = context

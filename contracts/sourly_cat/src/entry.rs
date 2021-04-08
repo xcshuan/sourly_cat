@@ -10,7 +10,6 @@ use alloc::vec::Vec;
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{bytes::Bytes, prelude::*},
-    debug,
     high_level::{load_cell_data, load_cell_lock_hash, load_script, load_witness_args, QueryIter},
 };
 
@@ -114,43 +113,7 @@ pub fn main() -> Result<(), Error> {
 
     //Onwer发起的，Create NFT,
     if check_owner_mode(&args)? {
-        //暂时不做检查，相信Owner
-        // //对每个生成的NFT，验证其是否符合规则
-        // output_nft
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(i, nft)| {
-        //         if nft.fishes != 9 {
-        //             return Err(Error::ErrWrongInputOutPut);
-        //         }
-        //         let lock_hash = load_cell_lock_hash(i, Source::GroupOutput)?;
-        //         let mut index = 15;
-        //         //以空格前的字符作为name
-        //         nft.name.iter().enumerate().any(|(i, v)| {
-        //             if *v == b'$' {
-        //                 index = i;
-        //                 return true;
-        //             }
-        //             return false;
-        //         });
-        //         //最少两个字符
-        //         if index < 2 {
-        //             return Err(Error::ErrWrongInputOutPut);
-        //         }
-        //         //拼接同时求hash
-        //         let mut conc = Vec::with_capacity(index + lock_hash.len());
-        //         conc.extend(nft.name[0..index].iter());
-        //         conc.extend(lock_hash.iter());
-
-        //         let res = hash::blake2b_160(conc);
-
-        //         //检验Hash是否相等
-        //         if !res.eq(&nft.hash) {
-        //             return Err(Error::ErrWrongResult);
-        //         }
-        //         return Ok(());
-        //     })
-        //     .collect::<Result<Vec<_>, Error>>()?;
+        //对Owner的操作不做检查
         return Ok(());
     }
 
@@ -223,12 +186,24 @@ pub fn main() -> Result<(), Error> {
 
             //开始回合制攻击
 
+            //0 noone win;1, 1 win;2, 2 win;3, all failed
+            let mut who_win = 0;
+
             // 传入任意 n 值，满足下列两个条件之一，则可以确认战斗结果
             //n * Hurt1 > 10 * HP2 且 (n-1) * Hurt2 < 10 * HP1 则 <被挑战者> 胜利
             //n * Hurt1 < 10 * HP2 且 n * Hurt2 > 10 * HP1 则 <挑战者> 胜利
-            if (n * hurt_1 >= 10 * stats_2.hp as u16)
-                && ((n - 1) * (hurt_2) < 10 * stats_1.hp as u16)
+            if (n * hurt_1 >= 5 * stats_2.hp as u16)
+                && ((n - 1) * (hurt_2) < 5 * stats_1.hp as u16)
             {
+                who_win += 1;
+            }
+
+            //验证挑战结果
+            if (n * hurt_1 < 5 * stats_2.hp as u16) && (n * (hurt_2) >= 5 * stats_1.hp as u16) {
+                who_win += 2;
+            }
+
+            if who_win == 1 {
                 //1 Win!
                 //计算输的一方有多少fish，暂时没考虑四舍五入
                 let mut loser_fishes = input_nft[1].fishes - stats_1.atk as i32 / 10;
@@ -263,10 +238,7 @@ pub fn main() -> Result<(), Error> {
                     return Err(Error::ErrWrongResult);
                 }
                 return Ok(());
-            }
-
-            //验证挑战结果
-            if (n * hurt_1 < 10 * stats_2.hp as u16) && (n * (hurt_2) >= 10 * stats_1.hp as u16) {
+            } else if who_win == 2 {
                 //2 Win! 检查逻辑类似1
                 let mut loser_fishes = input_nft[0].fishes - stats_2.atk as i32 / 10;
                 if loser_fishes == 0 {
