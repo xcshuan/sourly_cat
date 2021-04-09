@@ -106,9 +106,9 @@ pub fn main() -> Result<(), Error> {
     let script = load_script()?;
 
     let args: Bytes = script.args().unpack();
-    //debug!("script args is {:?}", args);
+    // debug!("script args is {:?}", args);
 
-    //Collect output NFT first
+    // //Collect output NFT first
     let output_nft = collect_outputs_data()?;
 
     //Onwer发起的，Create NFT,
@@ -192,8 +192,7 @@ pub fn main() -> Result<(), Error> {
             // 传入任意 n 值，满足下列两个条件之一，则可以确认战斗结果
             //n * Hurt1 > 10 * HP2 且 (n-1) * Hurt2 < 10 * HP1 则 <被挑战者> 胜利
             //n * Hurt1 < 10 * HP2 且 n * Hurt2 > 10 * HP1 则 <挑战者> 胜利
-            if (n * hurt_1 >= 5 * stats_2.hp as u16)
-                && ((n - 1) * (hurt_2) < 5 * stats_1.hp as u16)
+            if (n * hurt_1 >= 5 * stats_2.hp as u16) && ((n - 1) * (hurt_2) < 5 * stats_1.hp as u16)
             {
                 who_win += 1;
             }

@@ -1,0 +1,4 @@
+[submodule "pw-lock"]
+	path = pw-lock
+	url = https://github.com/lay2dev/pw-lock
+	branch = develop
