@@ -94,34 +94,36 @@ fn gen_tx_for_nft_fighting(context: &mut Context, lock_args: Bytes) -> Transacti
     output_nft[1].name = input_nft[1].name;
 
     //计算双方的挑战前属性值
-    let stats_1: Statistics = (input_nft[0].hash).into();
-    let stats_2: Statistics = (input_nft[1].hash).into();
+    let stats_0: Statistics = (input_nft[0].hash).into();
+    let stats_1: Statistics = (input_nft[1].hash).into();
 
-    // print!("stats_1:{:?},stats_2:{:?}\n", stats_1, stats_2);
+    // print!("stats_0:{:?},stats_1:{:?}\n", stats_0, stats_1);
 
     //计算攻击伤害
     // Hurt1 = ATK1*( 1 - DEF2/(DEF2 - LCK2*2 + 250) )
-    let hurt_1 = stats_1.atk as u16
-        * (1 - stats_2.def as u16 / (250 - stats_2.lck as u16 * 2 + stats_2.def as u16));
+    let hurt_0 = stats_0.atk as u16
+        - stats_0.atk as u16 * stats_1.def as u16
+            / (250 - stats_1.lck as u16 * 2 + stats_1.def as u16);
 
     // Hurt2 = ATK2*( 1 - DEF1/(DEF1 - LCK1*2 + 250) )
-    let hurt_2 = stats_2.atk as u16
-        * (1 - stats_1.def as u16 / (250 - stats_1.lck as u16 * 2 + stats_1.def as u16));
+    let hurt_1 = stats_1.atk as u16
+        - stats_1.atk as u16 * stats_0.def as u16
+            / (250 - stats_0.lck as u16 * 2 + stats_0.def as u16);
 
-    // print!("hurt_1:{},hurt_2:{}\n", hurt_1, hurt_2);
+    // print!("hurt_0:{},hurt_1:{}\n", hurt_0, hurt_1);
 
     let mut someone_win = false;
     let mut n = 0;
     for i in 1..=max_fight_count {
-        if (i as u16 * hurt_1 > 5 * stats_2.hp as u16)
-            && ((i - 1) as u16 * (hurt_2) < 5 * stats_1.hp as u16)
+        if (i as u16 * hurt_0 > 5 * stats_1.hp as u16)
+            && ((i - 1) as u16 * (hurt_1) < 5 * stats_0.hp as u16)
         {
             n = i;
             someone_win = true;
-            //1 Win!
+            //0 Win!
 
             //计算输的一方有多少fish，暂时没考虑四舍五入
-            let mut loser_fishes = input_nft[1].fishes - stats_1.atk as i32 / 10;
+            let mut loser_fishes = input_nft[1].fishes - stats_0.atk as i32 / 10;
 
             //触发隐藏奖励
             if loser_fishes == 0 {
@@ -129,10 +131,10 @@ fn gen_tx_for_nft_fighting(context: &mut Context, lock_args: Bytes) -> Transacti
             }
 
             //计算赢的一方的Fish数目
-            let winner_fishes = { input_nft[0].fishes + (stats_2.hp as i32 / 10) };
+            let winner_fishes = { input_nft[0].fishes + (stats_1.hp as i32 / 10) };
 
             print!(
-                "1 Win, loser_fishes:{}, winner_fishes:{}\n",
+                "0 Win, loser_fishes:{}, winner_fishes:{}\n",
                 loser_fishes, winner_fishes
             );
 
@@ -152,20 +154,20 @@ fn gen_tx_for_nft_fighting(context: &mut Context, lock_args: Bytes) -> Transacti
         }
 
         //验证挑战结果
-        if (i as u16 * hurt_1 < 5 * stats_2.hp as u16)
-            && (i as u16 * (hurt_2) > 5 * stats_1.hp as u16)
+        if (i as u16 * hurt_0 < 5 * stats_1.hp as u16)
+            && (i as u16 * (hurt_1) > 5 * stats_0.hp as u16)
         {
             n = i;
             someone_win = true;
-            //2 Win! 检查逻辑类似1
-            let mut loser_fishes = input_nft[0].fishes - stats_2.atk as i32 / 10;
+            //1 Win! 检查逻辑类似0
+            let mut loser_fishes = input_nft[0].fishes - stats_1.atk as i32 / 10;
             if loser_fishes == 0 {
                 loser_fishes = 999
             }
-            let winner_fishes = { input_nft[1].fishes + stats_1.hp as i32 / 10 };
+            let winner_fishes = { input_nft[1].fishes + stats_0.hp as i32 / 10 };
 
             print!(
-                "2 Win, loser_fishes:{}, winner_fishes:{}\n",
+                "1 Win, loser_fishes:{}, winner_fishes:{}\n",
                 loser_fishes, winner_fishes
             );
             output_nft[1].fishes = winner_fishes;
@@ -308,35 +310,35 @@ fn test_fighting_prob() {
                 output_nft[1].name = input_nft[1].name;
 
                 //计算双方的挑战前属性值
-                let stats_1: Statistics = (input_nft[0].hash).into();
-                let stats_2: Statistics = (input_nft[1].hash).into();
+                let stats_0: Statistics = (input_nft[0].hash).into();
+                let stats_1: Statistics = (input_nft[1].hash).into();
 
-                // print!("n:{},stats_1:{:?},stats_2:{:?}\n", n, stats_1, stats_2);
+                // print!("n:{},stats_0:{:?},stats_1:{:?}\n", n, stats_0, stats_1);
 
                 //计算攻击伤害
                 // Hurt1 = ATK1*( 1 - DEF2/(DEF2 - LCK2*2 + 250) )
-                let hurt_1 = stats_1.atk as u16
-                    * (1 - stats_2.def as u16
-                        / (250 - stats_2.lck as u16 * 2 + stats_2.def as u16));
-
-                // Hurt2 = ATK2*( 1 - DEF1/(DEF1 - LCK1*2 + 250) )
-                let hurt_2 = stats_2.atk as u16
+                let hurt_0 = stats_0.atk as u16
                     * (1 - stats_1.def as u16
                         / (250 - stats_1.lck as u16 * 2 + stats_1.def as u16));
 
-                // print!("hurt_1:{},hurt_2:{}\n", hurt_1, hurt_2);
+                // Hurt2 = ATK2*( 1 - DEF1/(DEF1 - LCK1*2 + 250) )
+                let hurt_1 = stats_1.atk as u16
+                    * (1 - stats_0.def as u16
+                        / (250 - stats_0.lck as u16 * 2 + stats_0.def as u16));
+
+                // print!("hurt_0:{},hurt_1:{}\n", hurt_0, hurt_1);
 
                 let mut someone_win = false;
                 for i in 1..5000 as u16 {
-                    if (i * hurt_1) >= (k * stats_2.hp as u16)
-                        && ((i - 1) * hurt_2) < (k * stats_1.hp as u16)
+                    if (i * hurt_0) >= (k * stats_1.hp as u16)
+                        && ((i - 1) * hurt_1) < (k * stats_0.hp as u16)
                     {
                         someone_win = true;
                         win_1_count += 1;
                         //1 Win!
 
                         //计算输的一方有多少fish，暂时没考虑四舍五入
-                        let mut loser_fishes = input_nft[1].fishes - stats_1.atk as i32 / 10;
+                        let mut loser_fishes = input_nft[1].fishes - stats_0.atk as i32 / 10;
 
                         //触发隐藏奖励
                         if loser_fishes == 0 {
@@ -344,7 +346,7 @@ fn test_fighting_prob() {
                         }
 
                         //计算赢的一方的Fish数目
-                        let winner_fishes = { input_nft[0].fishes + (stats_2.hp as i32 / 10) };
+                        let winner_fishes = { input_nft[0].fishes + (stats_1.hp as i32 / 10) };
 
                         // print!(
                         //     "1Win, loser_fishes:{}, winner_fishes:{}\n",
@@ -367,17 +369,17 @@ fn test_fighting_prob() {
                     }
 
                     //验证挑战结果
-                    if ((i * hurt_1) < (k * stats_2.hp as u16))
-                        && (i * hurt_2) >= (k * stats_1.hp as u16)
+                    if ((i * hurt_0) < (k * stats_1.hp as u16))
+                        && (i * hurt_1) >= (k * stats_0.hp as u16)
                     {
                         someone_win = true;
                         win_2_count += 1;
                         //2 Win! 检查逻辑类似1
-                        let mut loser_fishes = input_nft[0].fishes - stats_2.atk as i32 / 10;
+                        let mut loser_fishes = input_nft[0].fishes - stats_1.atk as i32 / 10;
                         if loser_fishes == 0 {
                             loser_fishes = 999
                         }
-                        let winner_fishes = { input_nft[1].fishes + stats_1.hp as i32 / 10 };
+                        let winner_fishes = { input_nft[1].fishes + stats_0.hp as i32 / 10 };
 
                         // print!(
                         //     "2Win, loser_fishes:{}, winner_fishes:{}\n",

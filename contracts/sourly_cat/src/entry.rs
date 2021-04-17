@@ -164,25 +164,27 @@ pub fn main() -> Result<(), Error> {
             let args_output2 = load_cell_lock_hash(1, Source::GroupOutput)?;
 
             //保证挑战双方一一对应
-            if !(args_input1.eq(&args_output1) || args_input2.eq(&args_output2)) {
+            if !args_input1.eq(&args_output1) || !args_input2.eq(&args_output2) {
                 return Err(Error::ErrUnmatchPlayer);
             }
 
             //计算双方的挑战前属性值
-            let stats_1: Statistics = (input_nft[0].hash).into();
-            let stats_2: Statistics = (input_nft[1].hash).into();
-            //debug!("stats_1:{:?},stats_2:{:?}", stats_1, stats_2);
+            let stats_0: Statistics = (input_nft[0].hash).into();
+            let stats_1: Statistics = (input_nft[1].hash).into();
+            //debug!("stats_0:{:?},stats_1:{:?}", stats_0, stats_1);
 
             //计算攻击伤害
             // Hurt1 = ATK1*( 1 - DEF2/(DEF2 - LCK2*2 + 250) )
-            let hurt_1 = stats_1.atk as u16
-                * (1 - stats_2.def as u16 / (250 - stats_2.lck as u16 * 2 + stats_2.def as u16));
+            let hurt_0 = stats_0.atk as u16
+                - stats_0.atk as u16 * stats_1.def as u16
+                    / (250 - stats_1.lck as u16 * 2 + stats_1.def as u16);
 
             // Hurt2 = ATK2*( 1 - DEF1/(DEF1 - LCK1*2 + 250) )
-            let hurt_2 = stats_2.atk as u16
-                * (1 - stats_1.def as u16 / (250 - stats_1.lck as u16 * 2 + stats_1.def as u16));
+            let hurt_1 = stats_1.atk as u16
+                - stats_1.atk as u16 * stats_0.def as u16
+                    / (250 - stats_0.lck as u16 * 2 + stats_0.def as u16);
 
-            //debug!("hurt_1:{},hurt_2:{}", hurt_1, hurt_2);
+            //debug!("hurt_0:{},hurt_1:{}", hurt_0, hurt_1);
 
             //开始回合制攻击
 
@@ -192,20 +194,20 @@ pub fn main() -> Result<(), Error> {
             // 传入任意 n 值，满足下列两个条件之一，则可以确认战斗结果
             //n * Hurt1 > 10 * HP2 且 (n-1) * Hurt2 < 10 * HP1 则 <被挑战者> 胜利
             //n * Hurt1 < 10 * HP2 且 n * Hurt2 > 10 * HP1 则 <挑战者> 胜利
-            if (n * hurt_1 >= 5 * stats_2.hp as u16) && ((n - 1) * (hurt_2) < 5 * stats_1.hp as u16)
+            if (n * hurt_0 >= 5 * stats_1.hp as u16) && ((n - 1) * (hurt_1) < 5 * stats_0.hp as u16)
             {
                 who_win += 1;
             }
 
             //验证挑战结果
-            if (n * hurt_1 < 5 * stats_2.hp as u16) && (n * (hurt_2) >= 5 * stats_1.hp as u16) {
+            if (n * hurt_0 < 5 * stats_1.hp as u16) && (n * (hurt_1) >= 5 * stats_0.hp as u16) {
                 who_win += 2;
             }
 
             if who_win == 1 {
                 //1 Win!
                 //计算输的一方有多少fish，暂时没考虑四舍五入
-                let mut loser_fishes = input_nft[1].fishes - stats_1.atk as i32 / 10;
+                let mut loser_fishes = input_nft[1].fishes - stats_0.atk as i32 / 10;
 
                 //触发隐藏奖励
                 if loser_fishes == 0 {
@@ -213,10 +215,10 @@ pub fn main() -> Result<(), Error> {
                 }
 
                 //计算赢的一方的Fish数目
-                let winner_fishes = { input_nft[0].fishes + (stats_2.hp as i32 / 10) };
+                let winner_fishes = { input_nft[0].fishes + (stats_1.hp as i32 / 10) };
 
                 // debug!(
-                //     "1 Win, loser_fishes:{}, winner_fishes:{}",
+                //     "0 Win, loser_fishes:{}, winner_fishes:{}",
                 //     loser_fishes, winner_fishes
                 // );
                 //检查fish是否对应
@@ -239,13 +241,13 @@ pub fn main() -> Result<(), Error> {
                 return Ok(());
             } else if who_win == 2 {
                 //2 Win! 检查逻辑类似1
-                let mut loser_fishes = input_nft[0].fishes - stats_2.atk as i32 / 10;
+                let mut loser_fishes = input_nft[0].fishes - stats_1.atk as i32 / 10;
                 if loser_fishes == 0 {
                     loser_fishes = 999
                 }
-                let winner_fishes = { input_nft[1].fishes + stats_1.hp as i32 / 10 };
+                let winner_fishes = { input_nft[1].fishes + stats_0.hp as i32 / 10 };
                 // debug!(
-                //     "2Win, loser_fishes:{}, winner_fishes:{}",
+                //     "1 Win, loser_fishes:{}, winner_fishes:{}",
                 //     loser_fishes, winner_fishes
                 // );
                 if (output_nft[1].fishes != winner_fishes) || (output_nft[0].fishes != loser_fishes)

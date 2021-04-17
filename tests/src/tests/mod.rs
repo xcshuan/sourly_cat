@@ -121,16 +121,16 @@ impl NFTData {
         let mut nft = NFTData::new();
 
         //name
-        let mut conc: Vec<u8> = Vec::with_capacity(28);
         let mut rand_name_bytes = [0u8; 4];
         let mut rng = thread_rng();
         rng.fill(&mut rand_name_bytes);
         let rand_name = base64::encode_block(&rand_name_bytes);
         nft.name[0..8].copy_from_slice(rand_name.as_bytes());
-        conc.extend(rand_name.as_bytes().iter());
-        conc.extend(lock_hash.iter());
 
         //hash
+        let mut conc: Vec<u8> = Vec::with_capacity(28);
+        conc.extend(rand_name.as_bytes().iter());
+        conc.extend(lock_hash.iter());
         nft.hash = blake2b_160(&conc);
 
         //fishes
