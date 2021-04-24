@@ -129,14 +129,16 @@ pub fn main() -> Result<(), Error> {
         //从Witness中读取战斗轮次
         let mut n = 0;
         let res = load_witness_args(1, Source::GroupInput);
+
         if let Ok(wit_args) = res {
-            let in_type = wit_args.input_type().as_bytes().to_vec();
-            //in_type前四个字节好像被占用了
-            if in_type.len() >= 6 {
-                let mut number = [0u8; 2];
-                number[0] = in_type[4];
-                number[1] = in_type[5];
-                n = u16::from_be_bytes(number);
+            if let Some(in_type) = wit_args.input_type().to_opt() {
+                let in_type: Vec<u8> = in_type.unpack();
+                if in_type.len() >= 2 {
+                    let mut number = [0u8; 2];
+                    number[0] = in_type[0];
+                    number[1] = in_type[1];
+                    n = u16::from_be_bytes(number);
+                }
             }
         }
 
@@ -174,12 +176,12 @@ pub fn main() -> Result<(), Error> {
             //debug!("stats_0:{:?},stats_1:{:?}", stats_0, stats_1);
 
             //计算攻击伤害
-            // Hurt1 = ATK1*( 1 - DEF2/(DEF2 - LCK2*2 + 250) )
+            // Hurt1 = ATK1 - ATK1*DEF2/(DEF2 - LCK2*2 + 250) )
             let hurt_0 = stats_0.atk as u16
                 - stats_0.atk as u16 * stats_1.def as u16
                     / (250 - stats_1.lck as u16 * 2 + stats_1.def as u16);
 
-            // Hurt2 = ATK2*( 1 - DEF1/(DEF1 - LCK1*2 + 250) )
+            // Hurt2 = ATK2 - ATK2*DEF1/(DEF1 - LCK1*2 + 250)
             let hurt_1 = stats_1.atk as u16
                 - stats_1.atk as u16 * stats_0.def as u16
                     / (250 - stats_0.lck as u16 * 2 + stats_0.def as u16);

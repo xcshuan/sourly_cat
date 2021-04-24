@@ -133,11 +133,8 @@ impl NFTData {
         conc.extend(lock_hash.iter());
         nft.hash = blake2b_160(&conc);
 
-        //fishes
-        let stat: Statistics = nft.hash.into();
         //prevent add with overflow
-        nft.fishes =
-            100 - (stat.hp as i32 + stat.atk as i32 + stat.def as i32 + stat.lck as i32) / 5;
+        nft.fishes = 100;
         nft
     }
 }
@@ -176,6 +173,13 @@ impl From<[u8; 20]> for Statistics {
         let def = hash[14] % 100 + 1;
         let lck = hash[19] % 100 + 1;
         return Statistics { hp, atk, def, lck };
+    }
+}
+
+impl Statistics {
+    fn to_bytes(&self) -> Vec<u8> {
+        let a = vec![self.hp, self.atk, self.def, self.lck];
+        a
     }
 }
 
